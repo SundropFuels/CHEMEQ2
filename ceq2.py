@@ -10,7 +10,9 @@ class ChemEQ2Solver:
         #should check on the phase here
         self.ct_phase = ct_phase
 
-
+    def initialize(self, t):
+        self._init_t(t)
+        self._init_y()
 
 
     def _init_t(self, t):

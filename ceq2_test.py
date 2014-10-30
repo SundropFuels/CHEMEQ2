@@ -6,15 +6,34 @@ import cantera as ct
 
 #test solver creation
 #	-new solver with test phase
-#	-initialize solver t
-#	-initialize solver y
+#	-initialize solver t - evenly spaced
+#	-initialize solver t - unevenly spaced
+#	-bad t input - type
+#	-bad t input -- not beginning with 0
+#	-bad t input -- not monotonically increasing
 
 class SolverCreationTests(unittest.TestCase):
     def testCorrectCreation(self):
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        self.assertEqual(solver.ct_phase, ph)
+
+    def testCorrectInitializationEvenSpacing(self):
         self.assertTrue(False)
 
-    def testCorrectInitialization(self):
+    def testCorrectInitializationUnevenSpacing(self):
         self.assertTrue(False)
+
+    def testBadt_type(self):
+        self.assertTrue(False)
+
+    def testBadt_nonzeroinitial(self):
+        self.assertTrue(False)
+
+    def testBadt_nonmonotonic(self):
+        self.assertTrue(False)
+
 
 #test ys calculation
 #	-correct calculation
@@ -108,7 +127,8 @@ class CorrectSolutionTests(unittest.TestCase):
         self.assertTrue(False)
 
 
-
+if __name__ == "__main__":
+    unittest.main()
         
         
 
