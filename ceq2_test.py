@@ -2,7 +2,11 @@
 
 import unittest
 import ceq2 as kin
+import numpy as np
+import pandas as pd
 import cantera as ct
+
+
 
 #test solver creation
 #	-new solver with test phase
@@ -20,7 +24,18 @@ class SolverCreationTests(unittest.TestCase):
         self.assertEqual(solver.ct_phase, ph)
 
     def testCorrectInitializationEvenSpacing(self):
-        self.assertTrue(False)
+        t = np.arange(0, 100, 1)
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        solver.initialize(t)
+        self.assertTrue((solver.t==t).all())
+        d = {'AR':np.zeros(len(t)), 'HE':np.zeros(len(t)), 'ARHE':np.zeros(len(t))}
+        d['AR'][0] = 0.5
+        d['HE'][0] = 0.5
+        y = pd.DataFrame(data = d, index = t)
+        self.assertTrue((solver.y==y).all().all())
+       
 
     def testCorrectInitializationUnevenSpacing(self):
         self.assertTrue(False)

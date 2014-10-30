@@ -27,7 +27,10 @@ class ChemEQ2Solver:
 
     def _init_y(self):
         data = {key:np.zeros(len(self.t)) for key in self.ct_phase.species_names}
+        for key in self.ct_phase.species_names:
+            data[key][0] = self.ct_phase.X[self.ct_phase.species_index(key)]
         self.y = pd.DataFrame(data = data, index = self.t)
+        
 
 
     def solve(self):
