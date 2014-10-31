@@ -74,41 +74,37 @@ class SolverCreationTests(unittest.TestCase):
 
 #test ys calculation
 #	-correct calculation
-#	-bad inputs
 
 class ysCalculationTests(unittest.TestCase):
     def testCorrectys(self):
+        t = np.arange(0, 100, 1)
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        solver.initialize(t)
+        #for the purposes of testing, we need to jury-rig the system a little
+        solver.dt = 0.1
         self.assertTrue(False)
 
-    def testBadInputsys(self):
-        self.assertTrue(False)
 
 #test yp calculation
 #	-correct yp
-#	-bad inputs
 
 class ypCalculationTests(unittest.TestCase):
     def testCorrectyp(self):
         self.assertTrue(False)
 
-    def testBadInputsyp(self):
-        self.assertTrue(False)
-
 #test yc calculation
 #	-correct yc
-#	-bad inputs
 
 class ycCalculationTests(unittest.TestCase):
     def testCorrectyc(self):
         self.assertTrue(False)
 
-    def testBadInputsyc(self):
-        self.assertTrue(False)
-
 #test convergence calculation
 #	-correct convergence True
 #	-correct convergence False
-#	-bad inputs
+#	-bad inputs -- kick out of program if this is the case
 
 class ConvergenceCheckTests(unittest.TestCase):
     def testConvergenceTrue(self):
@@ -146,15 +142,16 @@ class AdjustdtTests(unittest.TestCase):
 class PadeEstimationTests(unittest.TestCase):
     def testPadeEstimation_small(self):
         self.assertTrue(False)
-        #ph = ct.Solution('test.cti')
-        #ph.TPX = 1000, 101325, 'He:0.5,Ar:0.5'
-        #solver = kin.ChemEQ2Solver(ct_phase = ph)
-
-    def testPadeEstimation_zero(self):
-        self.assertTrue(False)
-
-    def testPadeEstimation_big(self):
-        self.assertTrue(False)
+        t = np.arange(0, 100, 1)
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        solver.initialize(t)
+        
+        p = np.array([0.911392, 0.508332, 0])
+        arg = np.array([10, 0.1, 0])
+        self.assertTrue((np.abs(p-solver.pade(arg))<1E-3).all())
+        
 
 #correct solution
 #	-match analytical solution of "Ar-He" fake problem
