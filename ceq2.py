@@ -10,6 +10,7 @@ class ChemEQ2Solver:
         #should check on the phase here
         self.ct_phase = ct_phase
         self.conv_eps = 1E-2
+        self.dt_eps = 1E-2
 
     def initialize(self, t):
         self._init_t(t)
@@ -110,7 +111,12 @@ class ChemEQ2Solver:
 
     def adjust_dt(self):
         self.dt = self.dt * (1/np.power(self.sigma,0.5) + 0.005)   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
-        
+    
+    def estimate_dt(self):
+        r = self.ct_phase.concentrations/self.ct_phase.net_production_rates
+        r[not np.isfinite(r)] = 10000000	#where net production rate is 0, ignore
+        self.dt = self.dt_eps * np.min(np.abs(r))
+    
 
     def ct_str(self, y):
         #y needs to be a data row (pandas Series object)
