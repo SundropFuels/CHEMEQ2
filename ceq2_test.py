@@ -34,7 +34,8 @@ class SolverCreationTests(unittest.TestCase):
         d['AR'][0] = 0.5
         d['HE'][0] = 0.5
         y = pd.DataFrame(data = d, index = t)
-        self.assertTrue((solver.y==y).all().all())
+                        
+        self.assertTrue((solver.y-y<1E-12).all().all())
        
 
     def testCorrectInitializationUnevenSpacing(self):
