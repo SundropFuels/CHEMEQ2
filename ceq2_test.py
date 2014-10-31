@@ -39,7 +39,19 @@ class SolverCreationTests(unittest.TestCase):
        
 
     def testCorrectInitializationUnevenSpacing(self):
-        self.assertTrue(False)
+        t = np.array([0,1,5,23])
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        solver.initialize(t)
+        self.assertTrue((solver.t==t).all())
+        d = {'AR':np.zeros(len(t)), 'HE':np.zeros(len(t)), 'ARHE':np.zeros(len(t))}
+        d['AR'][0] = 0.5
+        d['HE'][0] = 0.5
+        y = pd.DataFrame(data = d, index = t)
+                        
+        self.assertTrue((solver.y-y<1E-12).all().all())
+       
 
     def testBadt_type(self):
         self.assertTrue(False)
