@@ -198,8 +198,9 @@ class PadeEstimationTests(unittest.TestCase):
         solver = kin.ChemEQ2Solver(ct_phase = ph)
         solver.initialize(t)
         
-        p = np.array([0.911392, 0.508332, 0])
+        p = np.array([0.911392, 0.508332, 0.5])
         arg = np.array([10, 0.1, 0])
+        
         self.assertTrue((np.abs(p-solver.pade(arg))<1E-3).all())
         
 
