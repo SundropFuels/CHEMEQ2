@@ -2,6 +2,16 @@ import numpy as np
 import pandas as pd
 import cantera as ct
 
+class ceq2Exception(Exception):
+    def __init__(self,value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+class NaNError(ceq2Exception):
+    pass
+
 
 class ChemEQ2Solver:
 

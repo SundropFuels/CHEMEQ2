@@ -139,9 +139,9 @@ class ConvergenceCheckTests(unittest.TestCase):
         ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
         solver = kin.ChemEQ2Solver(ct_phase = ph)
         solver.initialize(t)
-        solver.yp = np.array([np.nan, 0.0, 1.0])
-        solver.yc = np.array([0.1, 0.2, 0.3])
-        self.assertRaises(kin.NanError, solver.converged)
+        solver.yp = np.array([0.0, 0.0, 1.0])
+        solver.yc = np.array([np.nan, 0.2, 0.3])
+        self.assertRaises(kin.NaNError, solver.converged)
 
 
 #test stability calculation
@@ -165,7 +165,7 @@ class AdjustdtTests(unittest.TestCase):
         solver.dt = 0.1
         solver.sigma = 0.2
         solver.adjust_dt()
-        self.assertAlmostEqual(0.224107, solver.dt)
+        self.assertAlmostEqual(0.224107, solver.dt,4)
 
     def testAdjustdtCorrect_highsigma(self):
         t = np.arange(0, 100, 1)
@@ -176,7 +176,7 @@ class AdjustdtTests(unittest.TestCase):
         solver.dt = 0.1
         solver.sigma = 1.3
         solver.adjust_dt()
-        self.assertAlmostEqual(0.088206, solver.dt)
+        self.assertAlmostEqual(0.088206, solver.dt,4)
 
 #test pade estimation
 #	-pdt < 1
@@ -185,7 +185,7 @@ class AdjustdtTests(unittest.TestCase):
 
 class PadeEstimationTests(unittest.TestCase):
     def testPadeEstimation_small(self):
-        self.assertTrue(False)
+        
         t = np.arange(0, 100, 1)
         ph = ct.Solution('test.cti')
         ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
