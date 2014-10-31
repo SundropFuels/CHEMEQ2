@@ -54,14 +54,23 @@ class SolverCreationTests(unittest.TestCase):
        
 
     def testBadt_type(self):
-        self.assertTrue(False)
+        t = 23.0
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        self.assertRaises(kin.BadInputError, kin.ChemEQ2Solver, ph)
+
 
     def testBadt_nonzeroinitial(self):
-        self.assertTrue(False)
+        t = np.array([1,34,56])
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        self.assertRaises(kin.BadInputError, kin.ChemEQ2Solver, ph)
 
     def testBadt_nonmonotonic(self):
-        self.assertTrue(False)
-
+        t = np.array([1,2,1.5])
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        self.assertRaises(kin.BadInputError, kin.ChemEQ2Solver, ph)
 
 #test ys calculation
 #	-correct calculation
