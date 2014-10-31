@@ -33,7 +33,8 @@ class ChemEQ2Solver:
         
 
 
-    def solve(self):
+    def solve(self, Nc):
+        self.Nc = Nc
         for t in self.t:
             self.estimate_dt()
             while self.t_now < t:
@@ -82,11 +83,14 @@ class ChemEQ2Solver:
         n = 180.0*r**3 + 60.0*r**2 + 11*r + 1
         d = 360.0*r**3 + 60.0*r**2 + 12*r + 1
         a = n/d
-        a[not np.isfinite(a)] = 1.0
+        a[not np.isfinite(a)] = 0.5
         return a
 
     def converged(self):
         """Determine if the current step is converged.  Store the convergence check."""
+        #first check that we have finite values of everything -- doing this here is a convenient place to catch this error
+        if not np.isfinite(self.yc).all():		#should also check >0 -- do we install something to put a floor on the levels to avoid negatives?
+            raise NaNError, "The solver has encountered a non-finite solution.  Check the equations and try again."
         cc = np.abs(self.yc-self.yp)/(self.conv_eps * self.yc)
         self.sigma = np.max(cc)
         return self.sigma <= 1.0

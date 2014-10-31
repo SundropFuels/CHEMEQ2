@@ -84,7 +84,11 @@ class ysCalculationTests(unittest.TestCase):
         solver.initialize(t)
         #for the purposes of testing, we need to jury-rig the system a little
         solver.dt = 0.1
-        self.assertTrue(False)
+        y = np.array([0, 0.2, 0.6])
+        q = np.array([0.1, 0.0, 0.1])
+        p = np.array([0.2, 0.1, 0.0])
+        ans = np.array([0,0.20199,0.6])
+        self.assertTrue((np.abs(ans-solver.y_pc(y,q,p))<1E-4).all())
 
 
 #test yp calculation
