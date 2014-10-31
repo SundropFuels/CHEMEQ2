@@ -12,6 +12,16 @@ class ceq2Exception(Exception):
 class NaNError(ceq2Exception):
     pass
 
+class BadInputError(ceq2Exception):
+    pass
+
+
+def increasing(x):
+    """Determines if a numpy array is strictly increasing"""
+    x_shift = x[1:]
+    a = x[:-1]
+    return (x_shift-a>0).all()
+
 
 class ChemEQ2Solver:
 
@@ -32,9 +42,18 @@ class ChemEQ2Solver:
         if isinstance(t, np.ndarray):
             #should check that t makes sense  #!#
             self.t = t
-
         else:
-            raise Exception, "t must be a numpy array right now"
+            raise BadInputError, "t must be a numpy array right now"
+        
+
+        if self.t[0] != 0.0:
+            raise BadInputError, "time must start at 0"
+
+        if not increasing(self.t):
+            raise BadInputError, "time must be strictly increasing"
+        
+
+        
 
 
     def _init_y(self):
@@ -85,14 +104,14 @@ class ChemEQ2Solver:
         #Calculate q0 and p0
         q0 = self.ct_phase.creation_rates
         p0 = self.ct_phase.destruction_rates/self.ct_phase.concentrations
-        p0[not np.isfinite(p0)] = 0.0
+        p0[np.logical_not(np.isfinite(p0))] = 0.0
         return self.y_pc(self.y0, q0, p0)
 
     def calc_yc(self, yp):
         self.ct_phase.TPX = self.T, self.P, self.ct_str(yp)
         qp = self.ct_phase.creation_rates
         pp = self.ct_phase.destruction_rates/self.ct_phase.concentrations
-        pp[not np.isfinite(pp)] = 0.0
+        pp[np.logical_not(np.isfinite(pp))] = 0.0
         return self.y_pc(self.y0, qp, pp)
 
     def pade(self, r_inv):
@@ -100,7 +119,7 @@ class ChemEQ2Solver:
         n = 180.0*r**3 + 60.0*r**2 + 11*r + 1
         d = 360.0*r**3 + 60.0*r**2 + 12*r + 1
         a = n/d
-        a[not np.isfinite(a)] = 0.5
+        a[np.logical_not(np.isfinite(a))] = 0.5
         return a
 
     def converged(self):
@@ -124,7 +143,7 @@ class ChemEQ2Solver:
     
     def estimate_dt(self):
         r = self.ct_phase.concentrations/self.ct_phase.net_production_rates
-        r[not np.isfinite(r)] = 10000000	#where net production rate is 0, ignore
+        r[np.logical_not(np.isfinite(r))] = 10000000	#where net production rate is 0, ignore
         self.dt = self.dt_eps * np.min(np.abs(r))
     
 
