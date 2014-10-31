@@ -94,16 +94,18 @@ class ysCalculationTests(unittest.TestCase):
 #test yp calculation
 #	-correct yp
 
-class ypCalculationTests(unittest.TestCase):
-    def testCorrectyp(self):
-        self.assertTrue(False)
+#class ypCalculationTests(unittest.TestCase):
+#    def testCorrectyp(self):
+#        self.assertTrue(False)
 
 #test yc calculation
 #	-correct yc
 
-class ycCalculationTests(unittest.TestCase):
-    def testCorrectyc(self):
-        self.assertTrue(False)
+#class ycCalculationTests(unittest.TestCase):
+#    def testCorrectyc(self):
+#        self.assertTrue(False)
+
+#THESE ABOVE SHOULD PASS IF THE MAIN SOLVER PASSES -- SKIPPING FOR NOW, AS THEY ARE SIMPLE COMPOSITE FUNCTIONS
 
 #test convergence calculation
 #	-correct convergence True
@@ -112,13 +114,35 @@ class ycCalculationTests(unittest.TestCase):
 
 class ConvergenceCheckTests(unittest.TestCase):
     def testConvergenceTrue(self):
-        self.assertTrue(False)
+        t = np.arange(0, 100, 1)
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        solver.initialize(t)
+        solver.yp = np.array([0.10001, 0.200002, 0.300001])
+        solver.yc = np.array([0.1, 0.2, 0.3])
+        self.assertTrue(solver.converged())
     
     def testConvergenceFalse(self):
-        self.assertTrue(False)
+        t = np.arange(0, 100, 1)
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        solver.initialize(t)
+        solver.yp = np.array([0.4, 0.200002, 0.300001])
+        solver.yc = np.array([0.1, 0.2, 0.3])
+        self.assertTrue(not solver.converged())
 
     def testBadInputConvergence(self):
-        self.assertTrue(False)
+        t = np.arange(0, 100, 1)
+        ph = ct.Solution('test.cti')
+        ph.TPX = 1000, 101325, 'HE:0.5,AR:0.5'
+        solver = kin.ChemEQ2Solver(ct_phase = ph)
+        solver.initialize(t)
+        solver.yp = np.array([np.nan, 0.0, 1.0])
+        solver.yc = np.array([0.1, 0.2, 0.3])
+        self.assertRaises(kin.NanError, solver.converged)
+
 
 #test stability calculation
 #	-correct stability
