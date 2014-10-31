@@ -29,8 +29,9 @@ class ChemEQ2Solver:
     def _init_y(self):
         data = {key:np.zeros(len(self.t)) for key in self.ct_phase.species_names}
         for key in self.ct_phase.species_names:
-            data[key][0] = self.ct_phase.X[self.ct_phase.species_index(key)]
+            data[key][0] = self.ct_phase.concentrations[self.ct_phase.species_index(key)]
         self.y = pd.DataFrame(data = data, index = self.t)
+        self.y0 = self.y.iloc[0,:]
         
 
 
@@ -39,9 +40,13 @@ class ChemEQ2Solver:
         for t in self.t:
             self.estimate_dt()
             while self.t_now < t:
+                y_last = self.y0
+                t_last = self.t_now
                 y = self.solve_ts()
                 self.y0 = y		#set the current value to the most recent timestep
-            self.y.loc[t,:] = y
+            #actually, probably need to do some interpolation here if t_now > t
+            y_int = (y - y_last)/(self.t_now - t_last)*(t-t_last) + y_last
+            self.y.loc[t,:] = y_int
 
 
     def solve_ts(self):
@@ -65,17 +70,17 @@ class ChemEQ2Solver:
         return y0 + n/d
 
     def calc_yp(self):
-        self.ct_phase.TPY = self.T, self.P, self.ct_str(self.y0) #!# need to implement this
+        self.ct_phase.TPX = self.T, self.P, self.ct_str(self.y0) 
         #Calculate q0 and p0
         q0 = self.ct_phase.creation_rates
-        p0 = self.ct_phase.destruction_rates/self.ct_phase.X
+        p0 = self.ct_phase.destruction_rates/self.ct_phase.concentrations
         p0[not np.isfinite(p0)] = 0.0
         return self.y_pc(self.y0, q0, p0)
 
     def calc_yc(self, yp):
         self.ct_phase.TPX = self.T, self.P, self.ct_str(yp)
         qp = self.ct_phase.creation_rates
-        pp = self.ct_phase.destruction_rates/self.ct_phase.X
+        pp = self.ct_phase.destruction_rates/self.ct_phase.concentrations
         pp[not np.isfinite(pp)] = 0.0
         return self.y_pc(self.y0, qp, pp)
 
