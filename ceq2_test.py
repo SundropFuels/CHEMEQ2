@@ -93,7 +93,9 @@ class ysCalculationTests(unittest.TestCase):
         y = np.array([0, 0.2, 0.6])
         q = np.array([0.1, 0.0, 0.1])
         p = np.array([0.2, 0.1, 0.0])
-        ans = np.array([0,0.20199,0.6])
+        ans = np.array([0.009901,0.198009967,0.61])
+        print ans
+        print solver.y_pc(y,q,p)
         self.assertTrue((np.abs(ans-solver.y_pc(y,q,p))<1E-4).all())
 
 
