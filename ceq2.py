@@ -102,9 +102,9 @@ class ChemEQ2Solver:
     def calc_yp(self):
         self.ct_phase.TPX = self.T, self.P, self.ct_str(self.y0) 
         #Calculate q0 and p0
-        q0 = self.ct_phase.creation_rates
-        p0 = self.ct_phase.destruction_rates/self.ct_phase.concentrations
-        p0[np.logical_not(np.isfinite(p0))] = 0.0
+        self.q0 = self.ct_phase.creation_rates
+        self.p0 = self.ct_phase.destruction_rates/self.ct_phase.concentrations
+        self.p0[np.logical_not(np.isfinite(p0))] = 0.0
         return self.y_pc(self.y0, q0, p0)
 
     def calc_yc(self, yp):
@@ -112,7 +112,10 @@ class ChemEQ2Solver:
         qp = self.ct_phase.creation_rates
         pp = self.ct_phase.destruction_rates/self.ct_phase.concentrations
         pp[np.logical_not(np.isfinite(pp))] = 0.0
-        return self.y_pc(self.y0, qp, pp)
+        p_bar = 0.5*(pp+self.p0)
+        alpha_bar = self.pade(p_bar*self.dt)
+        q_tilde = alpha_bar * qp + (1.0-alpha_bar)*self.q0
+        return self.y_pc(self.y0, q_tilde, p_bar)
 
     def pade(self, r_inv):
         r = 1.0/r_inv
