@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import cantera as ct
+from collections import OrderedDict
+
 
 class ceq2Exception(Exception):
     def __init__(self,value):
@@ -31,11 +33,13 @@ class ChemEQ2Solver:
         self.ct_phase = ct_phase
         self.conv_eps = 1E-2
         self.dt_eps = 1E-2
+        self.T = self.ct_phase.T
+        self.P = self.ct_phase.P
 
     def initialize(self, t):
         self._init_t(t)
         self._init_y()
-
+        self.dt_max = np.min(self.t[1:] - self.t[:-1])
 
     def _init_t(self, t):
 
@@ -57,23 +61,31 @@ class ChemEQ2Solver:
 
 
     def _init_y(self):
-        data = {key:np.zeros(len(self.t)) for key in self.ct_phase.species_names}
+        #data = {key:np.zeros(len(self.t)) for key in self.ct_phase.species_names}
+        data = OrderedDict()
         for key in self.ct_phase.species_names:
-            data[key][0] = self.ct_phase.concentrations[self.ct_phase.species_index(key)]
+            data[key] = np.zeros(len(self.t))
+            data[key][0] = self.ct_phase.X[self.ct_phase.species_index(key)]		#building off of mole fractions, with a basis scalable by volumetric flowrate
+        
         self.y = pd.DataFrame(data = data, index = self.t)
         self.y0 = self.y.iloc[0,:]
-        
+        #print self.y0        
 
 
     def solve(self, Nc):
         self.Nc = Nc
-        for t in self.t:
+        self.t_now = self.t[0]
+        
+        for t in self.t[1:]:   #skip 0
             self.estimate_dt()
             while self.t_now < t:
+                #print "Solving major step for time %s" % t
                 y_last = self.y0
                 t_last = self.t_now
                 y = self.solve_ts()
                 self.y0 = y		#set the current value to the most recent timestep
+            #print "current time:\t%s" % self.t_now
+            #print "current y:\t%s" % y
             #actually, probably need to do some interpolation here if t_now > t
             y_int = (y - y_last)/(self.t_now - t_last)*(t-t_last) + y_last
             self.y.loc[t,:] = y_int
@@ -83,12 +95,15 @@ class ChemEQ2Solver:
         self.yp = self.calc_yp()
         self.yc = self.yp
         N = 0
+        #print "Current timestep:\t%s" % self.t_now
+        #print "Current dt:\t%s" % self.dt
         while N < self.Nc:
             self.yc = self.calc_yc(self.yc)
+            N += 1
         if self.converged() and self.stable():
-            self.tnow += self.dt
+            self.t_now += self.dt
             self.adjust_dt()
-            return yc
+            return self.yc
         else: 
             self.adjust_dt()
             return self.solve_ts()
@@ -100,17 +115,21 @@ class ChemEQ2Solver:
         return y0 + n/d
 
     def calc_yp(self):
+        #self.y0 holds the number of moles at this timestep for each specie in kmol
         self.ct_phase.TPX = self.T, self.P, self.ct_str(self.y0) 
         #Calculate q0 and p0
-        self.q0 = self.ct_phase.creation_rates
-        self.p0 = self.ct_phase.destruction_rates/self.ct_phase.concentrations
-        self.p0[np.logical_not(np.isfinite(p0))] = 0.0
-        return self.y_pc(self.y0, q0, p0)
+        V = np.sum(self.y0) * ct.gas_constant*self.T/self.P
+        self.q0 = self.ct_phase.creation_rates*V
+        self.p0 = self.ct_phase.destruction_rates*V/self.y0
+        self.p0[np.logical_not(np.isfinite(self.p0))] = 0.0
+        
+        return self.y_pc(self.y0, self.q0, self.p0)
 
     def calc_yc(self, yp):
         self.ct_phase.TPX = self.T, self.P, self.ct_str(yp)
-        qp = self.ct_phase.creation_rates
-        pp = self.ct_phase.destruction_rates/self.ct_phase.concentrations
+        V = np.sum(yp)*ct.gas_constant*self.T/self.P
+        qp = self.ct_phase.creation_rates*V
+        pp = self.ct_phase.destruction_rates*V/yp
         pp[np.logical_not(np.isfinite(pp))] = 0.0
         p_bar = 0.5*(pp+self.p0)
         alpha_bar = self.pade(p_bar*self.dt)
@@ -143,18 +162,24 @@ class ChemEQ2Solver:
 
     def adjust_dt(self):
         self.dt = self.dt * (1/np.power(self.sigma,0.5) + 0.005)   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
-    
+        if self.dt > self.dt_max:
+            self.dt = self.dt_max
+
     def estimate_dt(self):
-        r = self.ct_phase.concentrations/self.ct_phase.net_production_rates
+        V = np.sum(self.y0)*ct.gas_constant*self.T/self.P
+        r = self.y0/(self.ct_phase.net_production_rates*V)
         r[np.logical_not(np.isfinite(r))] = 10000000	#where net production rate is 0, ignore
+        r[r==0.0] = 10000000
         self.dt = self.dt_eps * np.min(np.abs(r))
+        if self.dt > self.dt_max:
+            self.dt = self.dt_max
     
 
     def ct_str(self, y):
         #y needs to be a data row (pandas Series object)
         s = ""
         for name in y.index:
-            s += "'%s':'%s'," % (name, y[name])
+            s += "%s:%s," % (name, y[name])
         s = s[:-1]
         return s
 

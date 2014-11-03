@@ -5,7 +5,7 @@ import ceq2 as kin
 import numpy as np
 import pandas as pd
 import cantera as ct
-
+from collections import OrderedDict
 
 
 #test solver creation
@@ -211,22 +211,28 @@ class PadeEstimationTests(unittest.TestCase):
 
 class CorrectSolutionTests(unittest.TestCase):
     def testAnalyticalSolution(self):
-        t = np.arange(0, 10, 1)
+        t = np.arange(0, 10, 0.01)
         ph = ct.Solution('test.cti')
         ph.TPX = 300, 101325, 'HE:0.5,AR:0.5'
         solver = kin.ChemEQ2Solver(ct_phase = ph)
         solver.initialize(t)
-        solver.solve(Nc=4)
-        Ar = np.array([0.020312,0.02001, 0.019433, 0.018627, 0.017651, 0.016566, 0.015428, 0.014283, 0.013166, 0.012102, 0.011104])
-        He = np.array([0.020312,0.02001, 0.019433, 0.018627, 0.017651, 0.016566, 0.015428, 0.014283, 0.013166, 0.012102, 0.011104])
-        ArHe = np.array([0.0, 0.000302, 0.000879, 0.001685, 0.002661, 0.003746, 0.004884, 0.006029, 0.007146, 0.00821, 0.009208])
-        d = {'AR':Ar, 'HE':He, 'ARHE':ArHe}
-        y_check = pd.DataFrame(data = d, index = t)
-        self.assertTrue((y==y_check).all().all())
+        solver.solve(Nc=1)
+        Ar = np.array([0.5,0.492535, 0.485237, 0.478100, 0.471121, 0.464295, 0.457619, 0.451087, 0.444696, 0.438443])
+        He = np.array([0.5,0.492535, 0.485237, 0.478100, 0.471121, 0.464295, 0.457619, 0.451087, 0.444696, 0.438443])
+        ArHe = np.array([0.0,0.007465, 0.014763, 0.0219, 0.028879, 0.035705, 0.042382, 0.048913, 0.055304, 0.061557])
+        d = OrderedDict()
+        d['HE'] =He
+        d['AR'] =Ar
+        d['ARHE']=ArHe
+        y_check = pd.DataFrame(data = d)
+        t_p = np.arange(0,10,1)
+        test = np.abs(solver.y.loc[t_p,:]-y_check)/y_check<1E-4
+        test['ARHE'][0] = True 		#Div by zero in the test case causing an inf to give False.  Just hard-code it.
+        self.assertTrue(test.all().all())
 
 
 if __name__ == "__main__":
     unittest.main()
         
         
-
+677
