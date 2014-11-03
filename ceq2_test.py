@@ -216,7 +216,7 @@ class CorrectSolutionTests(unittest.TestCase):
         ph.TPX = 300, 101325, 'HE:0.5,AR:0.5'
         solver = kin.ChemEQ2Solver(ct_phase = ph)
         solver.initialize(t)
-        solver.solve(Nc=1)
+        solver.solve(Nc=4)
         Ar = np.array([0.5,0.492535, 0.485237, 0.478100, 0.471121, 0.464295, 0.457619, 0.451087, 0.444696, 0.438443])
         He = np.array([0.5,0.492535, 0.485237, 0.478100, 0.471121, 0.464295, 0.457619, 0.451087, 0.444696, 0.438443])
         ArHe = np.array([0.0,0.007465, 0.014763, 0.0219, 0.028879, 0.035705, 0.042382, 0.048913, 0.055304, 0.061557])
