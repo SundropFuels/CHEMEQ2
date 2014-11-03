@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import cantera as ct
 from collections import OrderedDict
+import sys
 
 
 class ceq2Exception(Exception):
@@ -35,11 +36,13 @@ class ChemEQ2Solver:
         self.dt_eps = 1E-2
         self.T = self.ct_phase.T
         self.P = self.ct_phase.P
+        print "Solver set up."
 
     def initialize(self, t):
         self._init_t(t)
         self._init_y()
         self.dt_max = np.min(self.t[1:] - self.t[:-1])
+        print "Solver initialized"
 
     def _init_t(self, t):
 
@@ -84,7 +87,7 @@ class ChemEQ2Solver:
                 t_last = self.t_now
                 y = self.solve_ts()
                 self.y0 = y		#set the current value to the most recent timestep
-            #print "current time:\t%s" % self.t_now
+            
             #print "current y:\t%s" % y
             #actually, probably need to do some interpolation here if t_now > t
             y_int = (y - y_last)/(self.t_now - t_last)*(t-t_last) + y_last
@@ -94,6 +97,7 @@ class ChemEQ2Solver:
     def solve_ts(self):
         self.yp = self.calc_yp()
         self.yc = self.yp
+        sys.stdout.write("current time:\t%s\r" % self.t_now)
         N = 0
         #print "Current timestep:\t%s" % self.t_now
         #print "Current dt:\t%s" % self.dt
