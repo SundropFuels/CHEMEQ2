@@ -154,7 +154,8 @@ class ChemEQ2Solver:
         if not np.isfinite(self.yc).all():		#should also check >0 -- do we install something to put a floor on the levels to avoid negatives?
             raise NaNError, "The solver has encountered a non-finite solution.  Check the equations and try again."
         cc = np.abs(self.yc-self.yp)/(self.conv_eps * self.yc)
-        self.sigma = np.max(cc)
+        print np.mean(cc[np.logical_and(np.isfinite(cc),cc>0.0)])
+        self.sigma = np.max(cc[np.isfinite(cc)])
         return self.sigma <= 1.0
 
     def stable(self):
@@ -165,6 +166,9 @@ class ChemEQ2Solver:
         #return np.max(cc) < 0
 
     def adjust_dt(self):
+
+        sqrt_sigma = self.newton_sqrt(self.sigma, 3)
+        #print np.power(self.sigma, 0.5)
         self.dt = self.dt * (1/np.power(self.sigma,0.5) + 0.005)   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
         if self.dt > self.dt_max:
             self.dt = self.dt_max
@@ -178,6 +182,13 @@ class ChemEQ2Solver:
         if self.dt > self.dt_max:
             self.dt = self.dt_max
     
+    def newton_sqrt(self, val, iterations):
+        N=0
+        ans = val
+        while N<iterations:
+            ans = 0.5*(ans+val/ans)
+            N += 1
+        return ans
 
     def ct_str(self, y):
         #y needs to be a data row (pandas Series object)
