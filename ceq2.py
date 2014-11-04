@@ -193,7 +193,9 @@ class ChemEQ2Solver:
             r = n/d
             self.dt = self.dt * np.max(r[np.isfinite(r)])
         else:
-            self.dt = self.dt * (1/np.power(self.sigma,0.5) + 0.005)   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
+            if self.sigma > 0:
+                self.dt = self.dt * (1/np.power(self.sigma,0.5))   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
+            
 
         if self.dt > self.dt_max:
             self.dt = self.dt_max
