@@ -109,7 +109,7 @@ class ChemEQ2Solver:
             self.yc = self.calc_yc(self.yc)
             self.yc_history[N] = self.yc
             N += 1
-        print self.recursion_depth
+        #print self.recursion_depth
         if self.converged() and self.stable():
             self.t_now += self.dt
             self.adjust_dt()
