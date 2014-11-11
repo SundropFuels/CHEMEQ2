@@ -6,18 +6,18 @@ import cantera as ct
 from collections import OrderedDict
 
 if __name__ == "__main__":
-    t = np.arange(0, 600, 1.0)
+    t = np.arange(0, 4.0, 0.01)
     
-    ph = ct.Solution('completeMechanism.xml')
-    T = range(800,1110, 100)
-    P = [101325.0*5, 101325.0*10]
-    #T = [600]
-    #P = [101325]
-    Y = 'LIGC:0.1,LIGO:0.1,LIGH:0.1,CELL:0.39,ASH:0.01,HCE:0.3,H2O:1.0'
+    ph = ct.Solution('POLIMI_TOT_1407.cti')
+    #T = range(1300,1500, 100)
+    #P = [101325.0*5, 101325.0*10]
+    T = [1300]
+    P = [101325*5.0]
+    Y = 'H2:0.132,CO2:0.0708,CO:0.233,H2O:0.30,CH4:0.0850,C2H2:0.0023,C2H4:0.0241,C2H6:0.0016,C6H6:0.0007,C10H8:0.0013'
     for pressure in P:
         
         for temp in T:
-            ph.TPY =273.15+temp, pressure, Y
+            ph.TPX =273.15+temp, pressure, Y
 
             solver = kin.ChemEQ2Solver(ct_phase = ph)
             solver.initialize(t)
@@ -29,7 +29,7 @@ if __name__ == "__main__":
                 ph.TPX = 273.15+temp, pressure, solver.ct_str(solver.y.loc[i,:])
                 outframe.loc[i,'Enthalpy'] = ph.enthalpy_mass
 
-            filename = "biomass_lowT_%s_%s.csv" % (temp, pressure/101325.0)
+            filename = "tarcrack_highT_%s_%s_silva.csv" % (temp, pressure/101325.0)
             outframe.to_csv(filename)
     
     
