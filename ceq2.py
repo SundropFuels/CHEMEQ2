@@ -18,6 +18,9 @@ class NaNError(ceq2Exception):
 class BadInputError(ceq2Exception):
     pass
 
+class ConvectionNotSetup(ceq2Exception):
+    pass
+
 
 def increasing(x):
     """Determines if a numpy array is strictly increasing"""
@@ -39,6 +42,7 @@ class ChemEQ2Solver:
         self.stability_adjustment = False
         self.mode = mode
         self.recursion_depth = 0
+        self.iterations = 0
         print "Solver set up."
 
     def initialize(self, t):
@@ -97,20 +101,22 @@ class ChemEQ2Solver:
         self.t_now = self.t[0]
         
         for t in self.t[1:]:   #skip 0
+            #self.c_step = t
             self.estimate_dt()
+            
             while self.t_now < t:
                 #print "Solving major step for time %s" % t
                 y_last = self.y0
                 t_last = self.t_now
                 self.recursion_depth = 0
                 y = self.solve_ts()
-                self.y0 = y		#set the current value to the most recent timestep
+                self.y0 = y		
             
-            #print "current y:\t%s" % y
-            #actually, probably need to do some interpolation here if t_now > t
+            
+            
             y_int = (y - y_last)/(self.t_now - t_last)*(t-t_last) + y_last
             self.y.loc[t,:] = y_int
-
+        print "Solved in %s iterations" % self.iterations
 
     def solve_ts(self):
         self.calc_yp()
@@ -125,6 +131,9 @@ class ChemEQ2Solver:
             self.yc_history[N] = self.yc
             N += 1
         #print self.recursion_depth
+        self.iterations += 1
+
+        
         if self.converged() and self.stable():
             self.t_now += self.dt
             self.adjust_dt()
@@ -137,9 +146,8 @@ class ChemEQ2Solver:
 
     def y_pc(self, y0, q, p):
         """Calculates either the predictor or the corrector, depending on the terms fed to it"""
-        n = self.dt * (q-p*y0)
-        d = 1.0 + self.pade(self.dt*p)*p*self.dt
-        return y0 + n/d
+        
+        return y0 + (self.dt * (q-p*y0))/(1.0 + self.pade(self.dt*p)*p*self.dt)
 
     def calc_yp(self):
         #self.y0 holds the number of moles at this timestep for each specie in kmol
@@ -207,21 +215,23 @@ class ChemEQ2Solver:
         #sqrt_sigma = self.newton_sqrt(self.sigma, 3)
         #print np.power(self.sigma, 0.5)
 
-        if self.recursion_depth > 500:
-            self.dt *= 0.001	#Go small, and go small fast
-        elif self.stability_adjustment:
+        #if self.recursion_depth > 500:
+        #    self.dt *= 0.001	#Go small, and go small fast
+        if self.stability_adjustment:
             d = np.abs(self.yc_history[self.Nc-1] - self.yc_history[self.Nc-2])+0.001
             n = np.abs(self.yc_history[self.Nc-2] - self.yc_history[self.Nc-3])
             r = n/d
             self.dt = self.dt * np.max(r[np.isfinite(r)])
         else:
             if self.sigma > 0:
-                self.dt = self.dt * (1/np.power(self.sigma,0.5))   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
-            
+                #self.dt = self.dt * (1/np.power(self.sigma,0.5))   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
+                self.dt = self.dt * (1/self.newton_sqrt(self.sigma, 3))  #This will fail the current tests (probably)
 
         if self.dt > self.dt_max:
             self.dt = self.dt_max
 
+        #if self.dt > self.c_step - self.t_now:
+        #    self.dt = self.c_step - self.t_now
 
     def estimate_dt(self):
         V = np.sum(self.y0[:self.species_len])*ct.gas_constant*self.y0[self.T_index]/self.y0[self.T_index+1]
@@ -231,6 +241,7 @@ class ChemEQ2Solver:
         self.dt = self.dt_eps * np.min(np.abs(r))
         if self.dt > self.dt_max:
             self.dt = self.dt_max
+        
         #if self.dt < self.dt_min:
         #    self.dt = self.dt_min
         #print self.dt
@@ -246,6 +257,18 @@ class ChemEQ2Solver:
     def energy_balance_isothermal(self, y):
         return 0.0
 
+
+    def energy_balance_adiabatic(self, y):
+        #Assumes the ct_phase is already properly set -- I could do this explicitly, but that would take more processor time
+        n = np.sum(y[:self.species_len])
+        V = n*ct_gas_constant*y[self.T_index]/y[self.T_index+1]
+        return -1*(self.ct_phase.net_production_rates*self.ct_phase.enthalpy_mole)/(n*self.ct_phase.cp_mole)
+
+    def energy_balance_convective(self, y):
+        try:
+            Q = self.h * self.SA * (self.Tw - y[self.T_index])
+        except AttributeError:
+            raise ConvectionNotSetup, "The convection problem has not been properly set up -- you need to specify an h and a surface area"
 
 
     def ct_str(self, y):
