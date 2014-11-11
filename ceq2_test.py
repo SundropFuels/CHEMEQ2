@@ -30,9 +30,11 @@ class SolverCreationTests(unittest.TestCase):
         solver = kin.ChemEQ2Solver(ct_phase = ph)
         solver.initialize(t)
         self.assertTrue((solver.t==t).all())
-        d = {'AR':np.zeros(len(t)), 'HE':np.zeros(len(t)), 'ARHE':np.zeros(len(t))}
+        d = {'AR':np.zeros(len(t)), 'HE':np.zeros(len(t)), 'ARHE':np.zeros(len(t)), 'T':np.zeros(len(t)), 'P':np.zeros(len(t))}
         d['AR'][0] = 0.5
         d['HE'][0] = 0.5
+        d['T'][0] = 1000
+        d['P'][0] = 101325
         y = pd.DataFrame(data = d, index = t)
                         
         self.assertTrue((solver.y-y<1E-12).all().all())
@@ -45,9 +47,11 @@ class SolverCreationTests(unittest.TestCase):
         solver = kin.ChemEQ2Solver(ct_phase = ph)
         solver.initialize(t)
         self.assertTrue((solver.t==t).all())
-        d = {'AR':np.zeros(len(t)), 'HE':np.zeros(len(t)), 'ARHE':np.zeros(len(t))}
+        d = {'AR':np.zeros(len(t)), 'HE':np.zeros(len(t)), 'ARHE':np.zeros(len(t)), 'T':np.zeros(len(t)), 'P':np.zeros(len(t))}
         d['AR'][0] = 0.5
         d['HE'][0] = 0.5
+        d['T'][0] = 1000
+        d['P'][0] = 101325
         y = pd.DataFrame(data = d, index = t)
                         
         self.assertTrue((solver.y-y<1E-12).all().all())
@@ -173,7 +177,7 @@ class AdjustdtTests(unittest.TestCase):
         solver.dt = 0.1
         solver.sigma = 0.2
         solver.adjust_dt()
-        self.assertAlmostEqual(0.224107, solver.dt,4)
+        self.assertAlmostEqual(0.22360679775, solver.dt,4)
 
     def testAdjustdtCorrect_highsigma(self):
         t = np.arange(0, 100, 1)
@@ -184,7 +188,7 @@ class AdjustdtTests(unittest.TestCase):
         solver.dt = 0.1
         solver.sigma = 1.3
         solver.adjust_dt()
-        self.assertAlmostEqual(0.088206, solver.dt,4)
+        self.assertAlmostEqual(0.087705801931, solver.dt,4)
 
 #test pade estimation
 #	-pdt < 1
@@ -220,10 +224,14 @@ class CorrectSolutionTests(unittest.TestCase):
         Ar = np.array([0.5,0.492535, 0.485237, 0.478100, 0.471121, 0.464295, 0.457619, 0.451087, 0.444696, 0.438443])
         He = np.array([0.5,0.492535, 0.485237, 0.478100, 0.471121, 0.464295, 0.457619, 0.451087, 0.444696, 0.438443])
         ArHe = np.array([0.0,0.007465, 0.014763, 0.0219, 0.028879, 0.035705, 0.042382, 0.048913, 0.055304, 0.061557])
+        T = np.ones(10) * 300
+        P = np.ones(10) * 101325
         d = OrderedDict()
         d['HE'] =He
         d['AR'] =Ar
         d['ARHE']=ArHe
+        d['T'] = T
+        d['P'] = P
         y_check = pd.DataFrame(data = d)
         t_p = np.arange(0,10,1)
         test = np.abs(solver.y.loc[t_p,:]-y_check)/y_check<1E-4
@@ -235,4 +243,4 @@ if __name__ == "__main__":
     unittest.main()
         
         
-677
+

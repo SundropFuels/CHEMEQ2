@@ -3,7 +3,7 @@ import pandas as pd
 import cantera as ct
 from collections import OrderedDict
 import sys
-
+import copy
 
 class ceq2Exception(Exception):
     def __init__(self,value):
@@ -28,7 +28,7 @@ def increasing(x):
 
 class ChemEQ2Solver:
 
-    def __init__(self, ct_phase):
+    def __init__(self, ct_phase, mode = 'isothermal'):
 
         #should check on the phase here
         self.ct_phase = ct_phase
@@ -37,6 +37,8 @@ class ChemEQ2Solver:
         self.T = self.ct_phase.T
         self.P = self.ct_phase.P
         self.stability_adjustment = False
+        self.mode = mode
+        self.recursion_depth = 0
         print "Solver set up."
 
     def initialize(self, t):
@@ -71,7 +73,20 @@ class ChemEQ2Solver:
         for key in self.ct_phase.species_names:
             data[key] = np.zeros(len(self.t))
             data[key][0] = self.ct_phase.X[self.ct_phase.species_index(key)]		#building off of mole fractions, with a basis scalable by volumetric flowrate
+
+        self.species_len = len(self.ct_phase.species_names)
+
         
+
+        #Temperature and pressure
+        data['T'] = np.zeros(len(self.t))
+        data['P'] = np.zeros(len(self.t))
+
+        data['T'][0] = self.T
+        data['P'][0] = self.P
+
+        self.T_index = self.species_len
+              
         self.y = pd.DataFrame(data = data, index = self.t)
         self.y0 = self.y.iloc[0,:]
         #print self.y0        
@@ -98,15 +113,15 @@ class ChemEQ2Solver:
 
 
     def solve_ts(self):
-        self.yp = self.calc_yp()
-        self.yc = self.yp
+        self.calc_yp()
+        self.yc = copy.deepcopy(self.yp)
         sys.stdout.write("current time:\t%s\r" % (self.t_now))
         N = 0
         #print "Current timestep:\t%s" % self.t_now
         #print "Current dt:\t%s" % self.dt
         self.yc_history = {}
         while N < self.Nc:
-            self.yc = self.calc_yc(self.yc)
+            self.calc_yc(self.yc)
             self.yc_history[N] = self.yc
             N += 1
         #print self.recursion_depth
@@ -128,25 +143,32 @@ class ChemEQ2Solver:
 
     def calc_yp(self):
         #self.y0 holds the number of moles at this timestep for each specie in kmol
-        self.ct_phase.TPX = self.T, self.P, self.ct_str(self.y0) 
+        self.ct_phase.TPX = self.y0[self.T_index], self.y0[self.T_index+1], self.ct_str(self.y0) 
         #Calculate q0 and p0
-        V = np.sum(self.y0) * ct.gas_constant*self.T/self.P
+        #need to strip off the molar flows first
+        V = np.sum(self.y0[:self.species_len]) * ct.gas_constant*self.y0[self.T_index]/self.y0[self.T_index+1]
         self.q0 = self.ct_phase.creation_rates*V
-        self.p0 = self.ct_phase.destruction_rates*V/self.y0
+        self.p0 = self.ct_phase.destruction_rates*V/self.y0[:self.species_len]
         self.p0[np.logical_not(np.isfinite(self.p0))] = 0.0
-        
-        return self.y_pc(self.y0, self.q0, self.p0)
+        self.yp = self.y_pc(self.y0[:self.species_len], self.q0, self.p0)
+        #now need to solve the energy balance
+        self.yp['T'] = self.y0[self.T_index] + self.dt * getattr(self, 'energy_balance_%s' % self.mode)(self.y0)
+        self.yp['P'] = self.P
+        #return self.y_pc(self.y0, self.q0, self.p0)
 
     def calc_yc(self, yp):
-        self.ct_phase.TPX = self.T, self.P, self.ct_str(yp)
-        V = np.sum(yp)*ct.gas_constant*self.T/self.P
+        self.ct_phase.TPX = yp[self.T_index], yp[self.T_index+1], self.ct_str(yp)
+        V = np.sum(yp[:self.species_len])*ct.gas_constant*yp[self.T_index]/yp[self.T_index+1]
         qp = self.ct_phase.creation_rates*V
-        pp = self.ct_phase.destruction_rates*V/yp
+        pp = self.ct_phase.destruction_rates*V/yp[:self.species_len]
         pp[np.logical_not(np.isfinite(pp))] = 0.0
         p_bar = 0.5*(pp+self.p0)
         alpha_bar = self.pade(p_bar*self.dt)
         q_tilde = alpha_bar * qp + (1.0-alpha_bar)*self.q0
-        return self.y_pc(self.y0, q_tilde, p_bar)
+        self.yc = self.y_pc(self.y0[:self.species_len], q_tilde, p_bar)
+        self.yc['T'] = self.y0[self.T_index] + self.dt * 0.5 * (getattr(self, 'energy_balance_%s' % self.mode)(self.y0) + getattr(self, 'energy_balance_%s' % self.mode)(yp))
+        self.yc['P'] = self.P
+        #return self.y_pc(self.y0, q_tilde, p_bar)
 
     def pade(self, r_inv):
         r = 1.0/r_inv
@@ -202,8 +224,8 @@ class ChemEQ2Solver:
 
 
     def estimate_dt(self):
-        V = np.sum(self.y0)*ct.gas_constant*self.T/self.P
-        r = self.y0/(self.ct_phase.net_production_rates*V)
+        V = np.sum(self.y0[:self.species_len])*ct.gas_constant*self.y0[self.T_index]/self.y0[self.T_index+1]
+        r = self.y0[:self.species_len]/(self.ct_phase.net_production_rates*V)
         r[np.logical_not(np.isfinite(r))] = 10000000	#where net production rate is 0, ignore
         r[r==0.0] = 10000000
         self.dt = self.dt_eps * np.min(np.abs(r))
@@ -221,10 +243,16 @@ class ChemEQ2Solver:
             N += 1
         return ans
 
+    def energy_balance_isothermal(self, y):
+        return 0.0
+
+
+
     def ct_str(self, y):
         #y needs to be a data row (pandas Series object)
         s = ""
-        for name in y.index:
+        #This allows me to carry a lot of additional items in the solution data frame, including T and P
+        for name in self.ct_phase.species_names:
             s += "%s:%s," % (name, y[name])
         s = s[:-1]
         return s
