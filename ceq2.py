@@ -73,7 +73,7 @@ class ChemEQ2Solver:
             data[key][0] = self.ct_phase.X[self.ct_phase.species_index(key)]		#building off of mole fractions, with a basis scalable by volumetric flowrate
         
         self.y = pd.DataFrame(data = data, index = self.t)
-        self.y0 = self.y.iloc[0,:]
+        self.y0 = self.y.iloc[0,:].values
         #print self.y0        
 
 
@@ -194,7 +194,8 @@ class ChemEQ2Solver:
             self.dt = self.dt * np.max(r[np.isfinite(r)])
         else:
             if self.sigma > 0:
-                self.dt = self.dt * (1/np.power(self.sigma,0.5))   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
+                self.dt = self.dt * (1/self.newton_sqrt(self.sigma,3))
+                #self.dt = self.dt * (1/np.power(self.sigma,0.5))   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
             
 
         if self.dt > self.dt_max:
@@ -224,8 +225,8 @@ class ChemEQ2Solver:
     def ct_str(self, y):
         #y needs to be a data row (pandas Series object)
         s = ""
-        for name in y.index:
-            s += "%s:%s," % (name, y[name])
+        for name in self.ct_phase.species_names:
+            s += "%s:%s," % (name, y[self.ct_phase.species_index(name)])
         s = s[:-1]
         return s
 

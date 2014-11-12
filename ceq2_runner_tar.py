@@ -11,7 +11,7 @@ if __name__ == "__main__":
     ph = ct.Solution('POLIMI_TOT_1407.cti')
     #T = range(1300,1500, 100)
     #P = [101325.0*5, 101325.0*10]
-    T = [1300]
+    T = [1300,1200,1400]
     P = [101325*5.0]
     Y = 'H2:0.132,CO2:0.0708,CO:0.233,H2O:0.30,CH4:0.0850,C2H2:0.0023,C2H4:0.0241,C2H6:0.0016,C6H6:0.0007,C10H8:0.0013'
     for pressure in P:
@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
             solver = kin.ChemEQ2Solver(ct_phase = ph)
             solver.initialize(t)
-            solver.solve(Nc=4)
+            solver.solve(Nc=3)
             #want to add the enthalpies -- this is cludgy -- I should do it as I solve, but that will take longer -- branch and build that later
             outframe = solver.y.copy()
             outframe['Enthalpy'] = np.zeros(len(solver.y['H2']))
