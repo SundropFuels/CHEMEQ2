@@ -97,7 +97,7 @@ class ChemEQ2Solver:
         self.T_index = self.species_len
               
         self.y = pd.DataFrame(data = data, index = self.t)
-        self.y0 = self.y.iloc[0,:]
+        self.y0 = self.y.iloc[0,:].values    #This is a numpy array now
         #print self.y0        
 
 
@@ -170,8 +170,8 @@ class ChemEQ2Solver:
         self.p0[np.logical_not(np.isfinite(self.p0))] = 0.0
         self.yp = self.y_pc(self.y0[:self.species_len], self.q0, self.p0)
         #now need to solve the energy balance
-        self.yp['T'] = self.y0[self.T_index] + self.dt * getattr(self, 'energy_balance_%s' % self.mode)(self.y0)
-        self.yp['P'] = self.P
+        self.yp = np.append(self.yp,self.y0[self.T_index] + self.dt * getattr(self, 'energy_balance_%s' % self.mode)(self.y0))
+        self.yp = np.append(self.yp,self.P)
         #return self.y_pc(self.y0, self.q0, self.p0)
 
     def calc_yc(self, yp):
@@ -184,8 +184,8 @@ class ChemEQ2Solver:
         alpha_bar = self.pade(p_bar*self.dt)
         q_tilde = alpha_bar * qp + (1.0-alpha_bar)*self.q0
         self.yc = self.y_pc(self.y0[:self.species_len], q_tilde, p_bar)
-        self.yc['T'] = self.y0[self.T_index] + self.dt * 0.5 * (getattr(self, 'energy_balance_%s' % self.mode)(self.y0) + getattr(self, 'energy_balance_%s' % self.mode)(yp))
-        self.yc['P'] = self.P
+        self.yc = np.append(self.yc, self.y0[self.T_index] + self.dt * 0.5 * (getattr(self, 'energy_balance_%s' % self.mode)(self.y0) + getattr(self, 'energy_balance_%s' % self.mode)(yp)))
+        self.yc = np.append(self.yc, self.P)
         #return self.y_pc(self.y0, q_tilde, p_bar)
 
     def pade(self, r_inv):
@@ -287,7 +287,7 @@ class ChemEQ2Solver:
         s = ""
         #This allows me to carry a lot of additional items in the solution data frame, including T and P
         for name in self.ct_phase.species_names:
-            s += "%s:%s," % (name, y[name])
+            s += "%s:%s," % (name, y[self.ct_phase.species_index(name)])
         s = s[:-1]
         return s
 
