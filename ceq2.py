@@ -4,6 +4,8 @@ import cantera as ct
 from collections import OrderedDict
 import sys
 import copy
+import time
+
 
 class ceq2Exception(Exception):
     def __init__(self,value):
@@ -43,7 +45,10 @@ class ChemEQ2Solver:
         self.mode = mode
         self.recursion_depth = 0
         self.iterations = 0
+
         print "Solver set up."
+
+
 
     def initialize(self, t):
         self._init_t(t)
@@ -99,6 +104,7 @@ class ChemEQ2Solver:
     def solve(self, Nc):
         self.Nc = Nc
         self.t_now = self.t[0]
+        self.yc_history = pd.DataFrame(index = range(0,self.Nc), columns = ['yc'])
         
         for t in self.t[1:]:   #skip 0
             #self.c_step = t
@@ -108,41 +114,45 @@ class ChemEQ2Solver:
                 #print "Solving major step for time %s" % t
                 y_last = self.y0
                 t_last = self.t_now
-                self.recursion_depth = 0
-                y = self.solve_ts()
-                self.y0 = y		
-            
-            
+                #self.recursion_depth = 0
+                self.solve_ts()
+
+                if self.converged() and self.stable():
+                    self.t_now += self.dt
+                    self.adjust_dt()
+                    y = self.yc  #these may be slow, but necessary
+                    self.y0 = y  #ditto
+         
+                else: 
+                    self.adjust_dt()		#cannot generalize this because of the stability adjustment
+                    self.stability_adjustment = False
+
+                
+                    
             
             y_int = (y - y_last)/(self.t_now - t_last)*(t-t_last) + y_last
             self.y.loc[t,:] = y_int
         print "Solved in %s iterations" % self.iterations
 
     def solve_ts(self):
+
         self.calc_yp()
         self.yc = copy.deepcopy(self.yp)
         sys.stdout.write("current time:\t%s\r" % (self.t_now))
         N = 0
         #print "Current timestep:\t%s" % self.t_now
         #print "Current dt:\t%s" % self.dt
-        self.yc_history = {}
+        
         while N < self.Nc:
             self.calc_yc(self.yc)
-            self.yc_history[N] = self.yc
+            self.yc_history['yc'][N] = self.yc
             N += 1
         #print self.recursion_depth
         self.iterations += 1
 
+
+        #return self.yc
         
-        if self.converged() and self.stable():
-            self.t_now += self.dt
-            self.adjust_dt()
-            return self.yc
-        else: 
-            self.recursion_depth += 1
-            self.adjust_dt()
-            self.stability_adjustment = False
-            return self.solve_ts()
 
     def y_pc(self, y0, q, p):
         """Calculates either the predictor or the corrector, depending on the terms fed to it"""
@@ -201,7 +211,7 @@ class ChemEQ2Solver:
         #Do nothing right now -- will require some work to do the lagging and to adjust the time step correctly
         return True
         if self.Nc >= 3:
-            cc = np.abs(self.yc_history[self.Nc-1] - self.yc_history[self.Nc-2]) - np.abs(self.yc_history[self.Nc-2] - self.yc_history[self.Nc-3])
+            cc = np.abs(self.yc_history['yc'][self.Nc-1] - self.yc_history['yc'][self.Nc-2]) - np.abs(self.yc_history['yc'][self.Nc-2] - self.yc_history['yc'][self.Nc-3])
         else:
             cc = np.zeros(3)  # just to make the final function workable
         retval = np.max(cc) < 0
@@ -218,8 +228,9 @@ class ChemEQ2Solver:
         #if self.recursion_depth > 500:
         #    self.dt *= 0.001	#Go small, and go small fast
         if self.stability_adjustment:
-            d = np.abs(self.yc_history[self.Nc-1] - self.yc_history[self.Nc-2])+0.001
-            n = np.abs(self.yc_history[self.Nc-2] - self.yc_history[self.Nc-3])
+            print "here"
+            d = np.abs(self.yc_history['yc'][self.Nc-1] - self.yc_history['yc'][self.Nc-2])+0.001
+            n = np.abs(self.yc_history['yc'][self.Nc-2] - self.yc_history['yc'][self.Nc-3])
             r = n/d
             self.dt = self.dt * np.max(r[np.isfinite(r)])
         else:
