@@ -37,7 +37,8 @@ class ChemEQ2Solver:
 
         #should check on the phase here
         self.ct_phase = ct_phase
-        self.conv_eps = 1E-2
+        self.conv_eps = 1E-1
+        self.c_factor = 10.0
         self.dt_eps = 1E-2
         self.T = self.ct_phase.T
         self.P = self.ct_phase.P
@@ -45,7 +46,7 @@ class ChemEQ2Solver:
         self.mode = mode
         self.recursion_depth = 0
         self.iterations = 0
-
+        self.cutoff_moles = 1E-20
         print "Solver set up."
 
 
@@ -107,10 +108,10 @@ class ChemEQ2Solver:
         self.Nc = Nc
         self.t_now = self.t[0]
         self.yc_history = pd.DataFrame(index = range(0,self.Nc), columns = ['yc'])
-        
+        self.estimate_dt()
         for t in self.t[1:]:   #skip 0
             #self.c_step = t
-            self.estimate_dt()
+            #self.estimate_dt()
             
             while self.t_now < t:
                 #print "Solving major step for time %s" % t
@@ -134,13 +135,14 @@ class ChemEQ2Solver:
             
             y_int = (y - y_last)/(self.t_now - t_last)*(t-t_last) + y_last
             self.y.loc[t,:] = y_int
+            
         print "Solved in %s iterations" % self.iterations
 
     def solve_ts(self):
 
         self.calc_yp()
         self.yc = copy.deepcopy(self.yp)
-        sys.stdout.write("current time:\t%s\r" % (self.t_now))
+        sys.stdout.write("current time:\t%0.5e  current dt:\t%0.5e\r" % (self.t_now, self.dt))
         N = 0
         #print "Current timestep:\t%s" % self.t_now
         #print "Current dt:\t%s" % self.dt
@@ -203,7 +205,7 @@ class ChemEQ2Solver:
         #first check that we have finite values of everything -- doing this here is a convenient place to catch this error
         if not np.isfinite(self.yc).all():		#should also check >0 -- do we install something to put a floor on the levels to avoid negatives?
             raise NaNError, "The solver has encountered a non-finite solution.  Check the equations and try again."
-        cc = np.abs(self.yc-self.yp)/(self.conv_eps * self.yc)
+        cc = np.abs(self.yc[self.yc>1E-20]-self.yp[self.yc>1E-20])/(self.conv_eps * self.yc[self.yc>1E-20])
 
         self.sigma = np.max(cc[np.isfinite(cc)])
         return self.sigma <= 1.0
@@ -239,7 +241,7 @@ class ChemEQ2Solver:
             if self.sigma > 0:
 
                 #self.dt = self.dt * (1/np.power(self.sigma,0.5))   #This could be too slow -- may want to replace the sqrt function with a 3-time newton iteration
-                self.dt = self.dt * (1/self.newton_sqrt(self.sigma, 3))  #This will fail the current tests (probably)
+                self.dt = self.dt * (1/self.newton_sqrt(self.sigma*self.c_factor, 3))  #This will fail the current tests (probably)
 
 
         if self.dt > self.dt_max:
@@ -276,8 +278,8 @@ class ChemEQ2Solver:
     def energy_balance_adiabatic(self, y):
         #Assumes the ct_phase is already properly set -- I could do this explicitly, but that would take more processor time
         n = np.sum(y[:self.species_len])
-        V = n*ct_gas_constant*y[self.T_index]/y[self.T_index+1]
-        return -1*(self.ct_phase.net_production_rates*self.ct_phase.enthalpy_mole)/(n*self.ct_phase.cp_mole)
+        V = n*ct.gas_constant*y[self.T_index]/y[self.T_index+1]
+        return -1*(np.sum(self.ct_phase.net_production_rates)*self.ct_phase.enthalpy_mole)/(n*self.ct_phase.cp_mole)
 
     def energy_balance_convective(self, y):
         try:

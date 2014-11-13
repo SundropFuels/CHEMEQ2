@@ -8,10 +8,10 @@ from collections import OrderedDict
 if __name__ == "__main__":
     t = np.arange(0, 4.0, 0.01)
     
-    ph = ct.Solution('POLIMI_TOT_1407.cti')
+    ph = ct.Solution('POLIMI_PRF_PAH_HT_1407.cti')
     #T = range(1300,1500, 100)
     #P = [101325.0*5, 101325.0*10]
-    T = [1300,1200,1400]
+    T = [1000, 1300,1200,1400]
     P = [101325*5.0]
     Y = 'H2:0.132,CO2:0.0708,CO:0.233,H2O:0.30,CH4:0.0850,C2H2:0.0023,C2H4:0.0241,C2H6:0.0016,C6H6:0.0007,C10H8:0.0013'
     for pressure in P:

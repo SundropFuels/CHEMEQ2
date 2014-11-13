@@ -6,18 +6,18 @@ import cantera as ct
 from collections import OrderedDict
 
 if __name__ == "__main__":
-    t = np.arange(0, 600, 1.0)
+    t = np.arange(0, 0.5, 0.001)
     
-    ph = ct.Solution('completeMechanism.xml')
-    T = range(800,1110, 100)
-    P = [101325.0*5, 101325.0*10]
-    #T = [600]
-    #P = [101325]
-    Y = 'LIGC:0.1,LIGO:0.1,LIGH:0.1,CELL:0.39,ASH:0.01,HCE:0.3,H2O:1.0'
+    ph = ct.Solution('POLIMI_PRF_PAH_HT_1407.cti')
+    #T = range(1300,1500, 100)
+    #P = [101325.0*5, 101325.0*10]
+    T = [1500,1600]
+    P = [101325*2.]
+    Y = 'CH4:0.5, H2:0.5'
     for pressure in P:
         
         for temp in T:
-            ph.TPY =273.15+temp, pressure, Y
+            ph.TPX =273.15+temp, pressure, Y
 
             solver = kin.ChemEQ2Solver(ct_phase = ph)
             solver.initialize(t)
@@ -29,7 +29,7 @@ if __name__ == "__main__":
                 ph.TPX = 273.15+temp, pressure, solver.ct_str(solver.y.loc[i,:])
                 outframe.loc[i,'Enthalpy'] = ph.enthalpy_mass
 
-            filename = "biomass_lowT_%s_%s.csv" % (temp, pressure/101325.0)
+            filename = "methane_crack_%s_%s.csv" % (temp, pressure/101325.0)
             outframe.to_csv(filename)
     
     
