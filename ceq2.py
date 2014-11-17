@@ -142,7 +142,7 @@ class ChemEQ2Solver:
 
         self.calc_yp()
         self.yc = copy.deepcopy(self.yp)
-        sys.stdout.write("current time:\t%0.5e  current dt:\t%0.5e\r" % (self.t_now, self.dt))
+        sys.stdout.write("current time:\t%0.5e  current dt:\t%0.5e\r" % (self.t_now, self.ct_phase.enthalpy_mass))
         N = 0
         #print "Current timestep:\t%s" % self.t_now
         #print "Current dt:\t%s" % self.dt
@@ -174,7 +174,8 @@ class ChemEQ2Solver:
         self.p0[np.logical_not(np.isfinite(self.p0))] = 0.0
         self.yp = self.y_pc(self.y0[:self.species_len], self.q0, self.p0)
         #now need to solve the energy balance
-        self.yp = np.append(self.yp,self.y0[self.T_index] + self.dt * getattr(self, 'energy_balance_%s' % self.mode)(self.y0))
+        self.yp_dT = getattr(self, 'energy_balance_%s' % self.mode)(self.y0)
+        self.yp = np.append(self.yp,self.y0[self.T_index] + self.dt * self.yp_dT)
         self.yp = np.append(self.yp,self.P)
         #return self.y_pc(self.y0, self.q0, self.p0)
 
@@ -188,7 +189,8 @@ class ChemEQ2Solver:
         alpha_bar = self.pade(p_bar*self.dt)
         q_tilde = alpha_bar * qp + (1.0-alpha_bar)*self.q0
         self.yc = self.y_pc(self.y0[:self.species_len], q_tilde, p_bar)
-        self.yc = np.append(self.yc, self.y0[self.T_index] + self.dt * 0.5 * (getattr(self, 'energy_balance_%s' % self.mode)(self.y0) + getattr(self, 'energy_balance_%s' % self.mode)(yp)))
+        self.yc = np.append(self.yc, self.y0[self.T_index] + self.dt * 0.5 * (self.yp_dT+ getattr(self, 'energy_balance_%s' % self.mode)(yp)))
+        #self.yc = np.append(self.yc, self.yp[self.T_index])
         self.yc = np.append(self.yc, self.P)
         #return self.y_pc(self.y0, q_tilde, p_bar)
 
@@ -278,8 +280,11 @@ class ChemEQ2Solver:
     def energy_balance_adiabatic(self, y):
         #Assumes the ct_phase is already properly set -- I could do this explicitly, but that would take more processor time
         n = np.sum(y[:self.species_len])
-        V = n*ct.gas_constant*y[self.T_index]/y[self.T_index+1]
-        return -1*(np.sum(self.ct_phase.net_production_rates)*self.ct_phase.enthalpy_mole)/(n*self.ct_phase.cp_mole)
+        #V = n*ct.gas_constant*y[self.T_index]/y[self.T_index+1]
+        return -1*(np.sum(self.ct_phase.net_production_rates*self.ct_phase.volume_mole*n*self.ct_phase.partial_molar_enthalpies))/(n*self.ct_phase.cp_mole)
+        
+
+
 
     def energy_balance_convective(self, y):
         try:
