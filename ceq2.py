@@ -5,7 +5,7 @@ from collections import OrderedDict
 import sys
 import copy
 import time
-
+import scipy.optimize as spo
 
 class ceq2Exception(Exception):
     def __init__(self,value):
@@ -142,20 +142,19 @@ class ChemEQ2Solver:
 
         self.calc_yp()
         self.yc = copy.deepcopy(self.yp)
-        sys.stdout.write("current time:\t%0.5e  current dt:\t%0.5e\r" % (self.t_now, self.ct_phase.enthalpy_mass))
+        sys.stdout.write("current time:\t%0.5e  current dt:\t%0.5e  current temp:\t%0.5e\r" % (self.t_now, self.ct_phase.mean_molecular_weight*np.sum(self.y0[:self.species_len]), self.y0[self.T_index]))
+        self.H_in = self.ct_phase.enthalpy_mass
         N = 0
         #print "Current timestep:\t%s" % self.t_now
         #print "Current dt:\t%s" % self.dt
         
         while N < self.Nc:
             self.calc_yc(self.yc)
-            self.yc_history['yc'][N] = self.yc
+            self.yc_history['yc'][N] = copy.deepcopy(self.yc)
             N += 1
         #print self.recursion_depth
         self.iterations += 1
-
-
-        #return self.yc
+        
         
 
     def y_pc(self, y0, q, p):
@@ -168,20 +167,23 @@ class ChemEQ2Solver:
         self.ct_phase.TPX = self.y0[self.T_index], self.y0[self.T_index+1], self.ct_str(self.y0) 
         #Calculate q0 and p0
         #need to strip off the molar flows first
-        V = np.sum(self.y0[:self.species_len]) * ct.gas_constant*self.y0[self.T_index]/self.y0[self.T_index+1]
+        #V = np.sum(self.y0[:self.species_len]) * ct.gas_constant*self.y0[self.T_index]/self.y0[self.T_index+1]
+        V = self.ct_phase.volume_mole*np.sum(self.y0[:self.species_len])
         self.q0 = self.ct_phase.creation_rates*V
         self.p0 = self.ct_phase.destruction_rates*V/self.y0[:self.species_len]
         self.p0[np.logical_not(np.isfinite(self.p0))] = 0.0
         self.yp = self.y_pc(self.y0[:self.species_len], self.q0, self.p0)
         #now need to solve the energy balance
         self.yp_dT = getattr(self, 'energy_balance_%s' % self.mode)(self.y0)
+        
         self.yp = np.append(self.yp,self.y0[self.T_index] + self.dt * self.yp_dT)
         self.yp = np.append(self.yp,self.P)
-        #return self.y_pc(self.y0, self.q0, self.p0)
+        
 
     def calc_yc(self, yp):
-        self.ct_phase.TPX = yp[self.T_index], yp[self.T_index+1], self.ct_str(yp)
-        V = np.sum(yp[:self.species_len])*ct.gas_constant*yp[self.T_index]/yp[self.T_index+1]
+        self.ct_phase.TPX = self.y0[self.T_index], self.y0[self.T_index+1], self.ct_str(yp)
+        #V = np.sum(yp[:self.species_len])*ct.gas_constant*yp[self.T_index]/yp[self.T_index+1]
+        V = self.ct_phase.volume_mole*np.sum(yp[:self.species_len])
         qp = self.ct_phase.creation_rates*V
         pp = self.ct_phase.destruction_rates*V/yp[:self.species_len]
         pp[np.logical_not(np.isfinite(pp))] = 0.0
@@ -189,10 +191,11 @@ class ChemEQ2Solver:
         alpha_bar = self.pade(p_bar*self.dt)
         q_tilde = alpha_bar * qp + (1.0-alpha_bar)*self.q0
         self.yc = self.y_pc(self.y0[:self.species_len], q_tilde, p_bar)
+        
         self.yc = np.append(self.yc, self.y0[self.T_index] + self.dt * 0.5 * (self.yp_dT+ getattr(self, 'energy_balance_%s' % self.mode)(yp)))
-        #self.yc = np.append(self.yc, self.yp[self.T_index])
+        
         self.yc = np.append(self.yc, self.P)
-        #return self.y_pc(self.y0, q_tilde, p_bar)
+        
 
     def pade(self, r_inv):
         r = 1.0/r_inv
@@ -207,7 +210,7 @@ class ChemEQ2Solver:
         #first check that we have finite values of everything -- doing this here is a convenient place to catch this error
         if not np.isfinite(self.yc).all():		#should also check >0 -- do we install something to put a floor on the levels to avoid negatives?
             raise NaNError, "The solver has encountered a non-finite solution.  Check the equations and try again."
-        cc = np.abs(self.yc[self.yc>1E-20]-self.yp[self.yc>1E-20])/(self.conv_eps * self.yc[self.yc>1E-20])
+        cc = np.abs(self.yc[self.yc>self.cutoff_moles]-self.yp[self.yc>self.cutoff_moles])/(self.conv_eps * self.yc[self.yc>self.cutoff_moles])
 
         self.sigma = np.max(cc[np.isfinite(cc)])
         return self.sigma <= 1.0
@@ -261,10 +264,7 @@ class ChemEQ2Solver:
         if self.dt > self.dt_max:
             self.dt = self.dt_max
         
-        #if self.dt < self.dt_min:
-        #    self.dt = self.dt_min
-        #print self.dt
-    
+            
     def newton_sqrt(self, val, iterations):
         N=0
         ans = val
@@ -273,6 +273,10 @@ class ChemEQ2Solver:
             N += 1
         return ans
 
+    def ebal(self, T):
+        self.ct_phase.TPX = T, self.P, self.ct_str(self.yc)
+        return self.H_in - self.ct_phase.enthalpy_mass
+
     def energy_balance_isothermal(self, y):
         return 0.0
 
@@ -280,7 +284,6 @@ class ChemEQ2Solver:
     def energy_balance_adiabatic(self, y):
         #Assumes the ct_phase is already properly set -- I could do this explicitly, but that would take more processor time
         n = np.sum(y[:self.species_len])
-        #V = n*ct.gas_constant*y[self.T_index]/y[self.T_index+1]
         return -1*(np.sum(self.ct_phase.net_production_rates*self.ct_phase.volume_mole*n*self.ct_phase.partial_molar_enthalpies))/(n*self.ct_phase.cp_mole)
         
 
