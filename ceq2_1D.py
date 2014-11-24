@@ -268,7 +268,7 @@ class ChemEQ2Solver:
 
     def estimate_dt(self):
         #V = np.sum(self.y0[:self.species_len])*ct.gas_constant*self.y0[self.T_index]/self.y0[self.T_index+1]
-        r = self.y0[:self.species_len]/(self.ct_phase.net_production_rates*self.XSA)
+        r = self.y0[:self.species_len]/(self.ct_phase.net_production_rates*self.tube.XSA)
         r[np.logical_not(np.isfinite(r))] = 10000000	#where net production rate is 0, ignore
         r[r==0.0] = 10000000
         self.dt = self.dt_eps * np.min(np.abs(r))
@@ -302,7 +302,7 @@ class ChemEQ2Solver:
 
     def energy_balance_convective(self, y):
         try:
-            Ql = 3.14159*self.tube.D*(self.tube.h * (self.Tw - y[self.T_index]) + self.eps*5.6E-8*(self.Tw**4 - y[self.T_index]))
+            Ql = 3.14159*self.tube.D*(self.tube.h * (self.tube.Tw - y[self.T_index]) + self.tube.eps*5.6E-8*(self.tube.Tw**4 - y[self.T_index]))
             return self.energy_balance_adiabatic(y, Ql)
         except AttributeError:
             raise ConvectionNotSetup, "The convection problem has not been properly set up -- you need to specify an h and a surface area"

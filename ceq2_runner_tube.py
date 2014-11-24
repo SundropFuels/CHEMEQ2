@@ -30,7 +30,7 @@ if __name__ == "__main__":
         
         for temp in Tw:
             ph.TPX =273.15+25, pressure, Y
-            rx = kin.tube = Tube(D = D, h = h, Tw = temp, eps = eps)
+            rx = kin.Tube(D = D, h = h, Tw = temp, eps = eps)
             solver = kin.ChemEQ2Solver(ct_phase = ph, tube = rx, mode = 'convective')
             solver.initialize(z, flow)
             solver.conv_eps = 1E-2
