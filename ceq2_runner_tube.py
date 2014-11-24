@@ -18,7 +18,7 @@ if __name__ == "__main__":
     
 
     #
-    flow = 10/24.0/60.0			#SLPM to mol/s
+    flow = 10/24.0/60.0/1000			#SLPM to kmol/s
 
     z = np.arange(0, 1.0, 0.001)
     ph = ct.Solution('POLIMI_PRF_PAH_HT_1407.cti')

@@ -303,6 +303,7 @@ class ChemEQ2Solver:
     def energy_balance_convective(self, y):
         try:
             Ql = 3.14159*self.tube.D*(self.tube.h * (self.tube.Tw - y[self.T_index]) + self.tube.eps*5.6E-8*(self.tube.Tw**4 - y[self.T_index]))
+            
             return self.energy_balance_adiabatic(y, Ql)
         except AttributeError:
             raise ConvectionNotSetup, "The convection problem has not been properly set up -- you need to specify an h and a surface area"
